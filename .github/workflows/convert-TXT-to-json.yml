@@ -1,0 +1,71 @@
+name: Convert txt to JSON
+
+on:
+  push:
+    paths:
+      - 'discretion/pcdn.txt'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Convert TXT to JSON
+        run: |
+          python - << 'EOF'
+          import json
+          import os
+          
+          # 读取 pcdn.txt 文件
+          input_file = 'discretion/pcdn.txt'
+          output_file = 'discretion/pcdn.json'
+          
+          domains = []
+          
+          with open(input_file, 'r', encoding='utf-8') as f:
+              for line in f:
+                  line = line.strip()
+                  # 跳过空行和注释行
+                  if line and not line.startswith('#'):
+                      domains.append(line)
+          
+          # 构建 JSON 结构
+          json_data = {
+              "version": 3,
+              "rules": [
+                  {
+                      "domain_suffix": domains
+                  }
+              ]
+          }
+          
+          # 写入 JSON 文件
+          with open(output_file, 'w', encoding='utf-8') as f:
+              json.dump(json_data, f, indent=2, ensure_ascii=False)
+          
+          print(f"转换完成！共转换 {len(domains)} 个域名")
+          EOF
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add discretion/pcdn.json
+          
+          if git diff --staged --quiet; then
+            echo "没有变化，跳过提交"
+          else
+            git commit -m "🤖 Auto: Convert pcdn.txt to pcdn.json"
+            git push
+          fi
